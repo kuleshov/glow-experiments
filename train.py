@@ -239,7 +239,7 @@ def main(
                 # z, nll, y_logits = model(x, None)
                 # losses = compute_loss(nll, reduction="none")
                 # TODO: WARNING: HACK: need to hard-code batch size in line 251 of model.py
-                x_pred = model(x=None, y_onehot=None, z=None, temperature=None, reverse=True)
+                x_pred = model(x=None, y_onehot=None, z=None, temperature=1., reverse=True)
                 loss_energy = compute_loss_energy(x, x_pred, device=device)
                 # TODO: this should not be reduced to a scalar
                 losses = {"total_loss": loss_energy, "loss_energy": loss_energy}

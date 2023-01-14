@@ -70,6 +70,43 @@ def compute_loss_y(nll, y_logits, y_weight, y, multi_class, reduction="mean"):
 
     return losses
 
+def makeScaleMatrix(num_gen, num_orig, device='cpu'):
+        # first 'N' entries have '1/N', next 'M' entries have '-1/M'
+        s1 =  torch.ones(num_gen, 1).to(device)/num_gen
+        s2 = -torch.ones(num_orig, 1).to(device)/num_orig
+        # 50 is batch size but hardcoded
+        return torch.cat([s1, s2], dim=0)
+
+def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], device='cpu'):
+        # concatenation of the generated images and images from the dataset
+        # first 'N' rows are the generated ones, next 'M' are from the data
+        X = torch.cat([gen_x, x], dim=0)
+        # dot product between all combinations of rows in 'X'
+
+        # TODO: should we handle all channels together or separately?
+        # currently we're comparing every channel to every channel
+        X = X.flatten(1)
+
+        XX = torch.matmul(X, torch.transpose(X, 0, 1))
+        # dot product of rows with themselves
+        X2 = torch.sum(X * X, dim = 1, keepdim=True)
+        # exponent entries of the RBF kernel (without the sigma) for each
+        # combination of the rows in 'X'
+        # -0.5 * (x^Tx - 2*x^Ty + y^Ty)
+        exponent = XX - 0.5 * X2 - 0.5 * torch.transpose(X2, 0, 1)
+        # scaling constants for each of the rows in 'X'
+        s = makeScaleMatrix(x.shape[0], x.shape[0], device=device)
+        # scaling factors of each of the kernel values, corresponding to the
+        # exponent values
+        S = torch.matmul(s, torch.transpose(s, 0, 1))
+        loss = 0
+        # for each bandwidth parameter, compute the MMD value and add them all
+        for i in range(len(sigma)):
+            # kernel values for each combination of the rows in 'X'
+            kernel_val = torch.exp(1.0 / sigma[i] * exponent)
+            loss += torch.sum(S * kernel_val)
+        return torch.sqrt(loss)    
+
 
 def main(
     dataset,
@@ -159,8 +196,11 @@ def main(
             z, nll, y_logits = model(x, y)
             losses = compute_loss_y(nll, y_logits, y_weight, y, multi_class)
         else:
-            z, nll, y_logits = model(x, None)
-            losses = compute_loss(nll)
+            # z, nll, y_logits = model(x, None)
+            # losses = compute_loss(nll)
+            x_pred = model(x=None, y_onehot=None, z=None, temperature=1., reverse=True)
+            loss_energy = compute_loss_energy(x, x_pred, device=device)
+            losses = {"total_loss": loss_energy, "loss_energy": loss_energy}
 
         losses["total_loss"].backward()
 
@@ -187,8 +227,13 @@ def main(
                     nll, y_logits, y_weight, y, multi_class, reduction="none"
                 )
             else:
-                z, nll, y_logits = model(x, None)
-                losses = compute_loss(nll, reduction="none")
+                # z, nll, y_logits = model(x, None)
+                # losses = compute_loss(nll, reduction="none")
+                # TODO: WARNING: HACK: need to hard-code batch size in line 251 of model.py
+                x_pred = model(x=None, y_onehot=None, z=None, temperature=None, reverse=True)
+                loss_energy = compute_loss_energy(x, x_pred, device=device)
+                # TODO: this should not be reduced to a scalar
+                losses = {"total_loss": loss_energy, "loss_energy": loss_energy}
 
         return losses
 
@@ -392,7 +437,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--batch_size", type=int, default=64, help="batch size used during training"
+        "--batch_size", type=int, default=100, help="batch size used during training"
     )
 
     parser.add_argument(

@@ -248,7 +248,7 @@ class Glow(nn.Module):
             h = self.prior_h.repeat(data.shape[0], 1, 1, 1)
         else:
             # Hardcoded a batch size of 32 here
-            h = self.prior_h.repeat(32, 1, 1, 1)
+            h = self.prior_h.repeat(100, 1, 1, 1)
 
         channels = h.size(1)
 
@@ -289,11 +289,11 @@ class Glow(nn.Module):
         return z, bpd, y_logits
 
     def reverse_flow(self, z, y_onehot, temperature):
-        with torch.no_grad():
-            if z is None:
-                mean, logs = self.prior(z, y_onehot)
-                z = gaussian_sample(mean, logs, temperature)
-            x = self.flow(z, temperature=temperature, reverse=True)
+        # with torch.no_grad():
+        if z is None:
+            mean, logs = self.prior(z, y_onehot)
+            z = gaussian_sample(mean, logs, temperature)
+        x = self.flow(z, temperature=temperature, reverse=True)
         return x
 
     def set_actnorm_init(self):

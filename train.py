@@ -4,6 +4,7 @@ import json
 import shutil
 import random
 from itertools import islice
+from math import sqrt
 
 import torch
 import torch.nn.functional as F
@@ -72,12 +73,13 @@ def compute_loss_y(nll, y_logits, y_weight, y, multi_class, reduction="mean"):
 
 def makeScaleMatrix(num_gen, num_orig, device='cpu'):
         # first 'N' entries have '1/N', next 'M' entries have '-1/M'
-        s1 =  torch.ones(num_gen, 1).to(device)/num_gen
-        s2 = -torch.ones(num_orig, 1).to(device)/num_orig
+        s1 =  torch.ones(num_gen, 1, requires_grad=False, device=device)/num_gen
+        s2 = -torch.ones(num_orig, 1, requires_grad=False, device=device)/num_orig
         # 50 is batch size but hardcoded
         return torch.cat([s1, s2], dim=0)
 
-def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], device='cpu'):
+# before we had: sigma = [2, 5, 10, 20, 40, 80]
+def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20], device='cpu'):
         # concatenation of the generated images and images from the dataset
         # first 'N' rows are the generated ones, next 'M' are from the data
         X = torch.cat([gen_x, x], dim=0)
@@ -86,6 +88,7 @@ def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], device='cpu'):
         # TODO: should we handle all channels together or separately?
         # currently we're comparing every channel to every channel
         X = X.flatten(1)
+        d = X.shape[1]
 
         XX = torch.matmul(X, torch.transpose(X, 0, 1))
         # dot product of rows with themselves
@@ -94,6 +97,10 @@ def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], device='cpu'):
         # combination of the rows in 'X'
         # -0.5 * (x^Tx - 2*x^Ty + y^Ty)
         exponent = XX - 0.5 * X2 - 0.5 * torch.transpose(X2, 0, 1)
+        # TODO: unclear if needed, doesn't remove NaNs by itself
+        exponent = exponent / sqrt(d)
+        # TODO: unclear if needed, doesn't remove NaNs & could hurt perf
+        exponent = torch.clip(exponent, -1e4, 1e4)
         # scaling constants for each of the rows in 'X'
         s = makeScaleMatrix(x.shape[0], x.shape[0], device=device)
         # scaling factors of each of the kernel values, corresponding to the
@@ -103,7 +110,9 @@ def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], device='cpu'):
         # for each bandwidth parameter, compute the MMD value and add them all
         for i in range(len(sigma)):
             # kernel values for each combination of the rows in 'X'
-            kernel_val = torch.exp(1.0 / sigma[i] * exponent)
+            v = 1.0 / sigma[i] * exponent
+            # v = torch.clip(v, -1e3, -1e3) # doesnt solve NaNs by itself
+            kernel_val = torch.exp(v)
             loss += torch.sum(S * kernel_val)
         return torch.sqrt(loss)    
 

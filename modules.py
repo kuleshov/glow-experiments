@@ -14,7 +14,7 @@ def gaussian_p(mean, logs, x):
             Var = logs ** 2
     """
     c = math.log(2 * math.pi)
-    return -0.5 * (logs * 2.0 + ((x - mean) ** 2) / torch.exp(logs * 2.0) + c)
+    return -0.5 * (logs * 2.0 + ((x - mean) ** 2) / torch.exp(logs * 2.0 + 1e-4) + c)
 
 
 def gaussian_likelihood(mean, logs, x):
@@ -87,7 +87,7 @@ class _ActNorm(nn.Module):
         with torch.no_grad():
             bias = -torch.mean(input.clone(), dim=[0, 2, 3], keepdim=True)
             vars = torch.mean((input.clone() + bias) ** 2, dim=[0, 2, 3], keepdim=True)
-            logs = torch.log(self.scale / (torch.sqrt(vars) + 1e-6))
+            logs = torch.log(self.scale / (torch.sqrt(vars) + 1e-4))
 
             self.bias.data.copy_(bias.data)
             self.logs.data.copy_(logs.data)
@@ -102,10 +102,11 @@ class _ActNorm(nn.Module):
 
     def _scale(self, input, logdet=None, reverse=False):
 
+        logs = torch.clip(self.logs, 1e-4, 100.)
         if reverse:
-            input = input * torch.exp(-self.logs)
+            input = input * torch.exp(-logs)
         else:
-            input = input * torch.exp(self.logs)
+            input = input * torch.exp(logs)
 
         if logdet is not None:
             """
@@ -114,7 +115,7 @@ class _ActNorm(nn.Module):
             """
             b, c, h, w = input.shape
 
-            dlogdet = torch.sum(self.logs) * h * w
+            dlogdet = torch.sum(logs) * h * w
 
             if reverse:
                 dlogdet *= -1
@@ -167,7 +168,8 @@ class LinearZeros(nn.Module):
 
     def forward(self, input):
         output = self.linear(input)
-        return output * torch.exp(self.logs * self.logscale_factor)
+        logs = torch.clip(self.logs, 1e-4, 100.)
+        return output * torch.exp(logs * self.logscale_factor)
 
 
 class Conv2d(nn.Module):
@@ -241,7 +243,8 @@ class Conv2dZeros(nn.Module):
 
     def forward(self, input):
         output = self.conv(input)
-        return output * torch.exp(self.logs * self.logscale_factor)
+        logs = torch.clip(self.logs, 1e-4, 100.)
+        return output * torch.exp(logs * self.logscale_factor)
 
 
 class Permute2d(nn.Module):
@@ -287,12 +290,14 @@ class Split2d(nn.Module):
         if reverse:
             z1 = input
             mean, logs = self.split2d_prior(z1)
+            logs = torch.clip(logs, 1e-4, 100.)
             z2 = gaussian_sample(mean, logs, temperature)
             z = torch.cat((z1, z2), dim=1)
             return z, logdet
         else:
             z1, z2 = split_feature(input, "split")
             mean, logs = self.split2d_prior(z1)
+            logs = torch.clip(logs, 1e-4, 100.)
             logdet = gaussian_likelihood(mean, logs, z2) + logdet
             return z1, logdet
 

@@ -248,7 +248,7 @@ class Glow(nn.Module):
             h = self.prior_h.repeat(data.shape[0], 1, 1, 1)
         else:
             # Hardcoded a batch size of 32 here
-            h = self.prior_h.repeat(100, 1, 1, 1)
+            h = self.prior_h.repeat(150, 1, 1, 1)
 
         channels = h.size(1)
 
@@ -276,6 +276,7 @@ class Glow(nn.Module):
         z, objective = self.flow(x, logdet=logdet, reverse=False)
 
         mean, logs = self.prior(x, y_onehot)
+        logs = torch.clip(logs, 1e-4, 100.)
         objective += gaussian_likelihood(mean, logs, z)
 
         if self.y_condition:
@@ -292,6 +293,7 @@ class Glow(nn.Module):
         # with torch.no_grad():
         if z is None:
             mean, logs = self.prior(z, y_onehot)
+            logs = torch.clip(logs, 1e-4, 100.)
             z = gaussian_sample(mean, logs, temperature)
         x = self.flow(z, temperature=temperature, reverse=True)
         return x

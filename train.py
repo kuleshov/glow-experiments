@@ -437,7 +437,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_grad_norm",
         type=float,
-        default=0,
+        default=5,
         help="Max norm of gradient (clip above - 0 for off)",
     )
 

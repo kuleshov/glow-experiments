@@ -79,7 +79,7 @@ def makeScaleMatrix(num_gen, num_orig, device='cpu'):
         return torch.cat([s1, s2], dim=0)
 
 # before we had: sigma = [2, 5, 10, 20, 40, 80]
-def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20], device='cpu'):
+def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], device='cpu'):
         # concatenation of the generated images and images from the dataset
         # first 'N' rows are the generated ones, next 'M' are from the data
         X = torch.cat([gen_x, x], dim=0)
@@ -430,14 +430,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_grad_clip",
         type=float,
-        default=0,
+        default=.5,
         help="Max gradient value (clip above - for off)",
     )
 
     parser.add_argument(
         "--max_grad_norm",
         type=float,
-        default=5,
+        default=1.,
         help="Max norm of gradient (clip above - 0 for off)",
     )
 

@@ -452,7 +452,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--eval_batch_size",
         type=int,
-        default=512,
+        default=150,
         help="batch size used during evaluation",
     )
 

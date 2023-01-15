@@ -102,7 +102,7 @@ def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], reduction='mea
         # TODO: unclear if needed, doesn't remove NaNs & could hurt perf
         exponent = torch.clip(exponent, -1e4, 1e4)
         # scaling constants for each of the rows in 'X'
-        s = makeScaleMatrix(x.shape[0], x.shape[0], device=device)
+        s = makeScaleMatrix(gen_x.shape[0], x.shape[0], device=device)
         # scaling factors of each of the kernel values, corresponding to the
         # exponent values
         S = torch.matmul(s, torch.transpose(s, 0, 1))

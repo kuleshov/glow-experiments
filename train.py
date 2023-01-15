@@ -79,7 +79,7 @@ def makeScaleMatrix(num_gen, num_orig, device='cpu'):
         return torch.cat([s1, s2], dim=0)
 
 # before we had: sigma = [2, 5, 10, 20, 40, 80]
-def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], device='cpu'):
+def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], reduction='mean', device='cpu'):
         # concatenation of the generated images and images from the dataset
         # first 'N' rows are the generated ones, next 'M' are from the data
         X = torch.cat([gen_x, x], dim=0)
@@ -113,8 +113,18 @@ def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], device='cpu'):
             v = 1.0 / sigma[i] * exponent
             # v = torch.clip(v, -1e3, -1e3) # doesnt solve NaNs by itself
             kernel_val = torch.exp(v)
-            loss += torch.sum(S * kernel_val)
-        return torch.sqrt(loss)    
+            loss += torch.sum(S * kernel_val, axis=1)
+
+        if reduction == 'mean':
+            final_loss = torch.mean(loss, axis=0)
+        elif reduction == 'sum':
+            final_loss = torch.sum(loss, axis=0)
+        elif reduction == 'none':
+            final_loss = loss
+        else:
+            raise ValueError()
+        final_loss = torch.sqrt(final_loss)
+        return final_loss
 
 
 def main(
@@ -240,8 +250,7 @@ def main(
                 # losses = compute_loss(nll, reduction="none")
                 # TODO: WARNING: HACK: need to hard-code batch size in line 251 of model.py
                 x_pred = model(x=None, y_onehot=None, z=None, temperature=1., reverse=True)
-                loss_energy = compute_loss_energy(x, x_pred, device=device)
-                # TODO: this should not be reduced to a scalar
+                loss_energy = compute_loss_energy(x, x_pred, device=device, reduction="none")
                 losses = {"total_loss": loss_energy, "loss_energy": loss_energy}
 
         return losses

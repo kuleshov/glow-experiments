@@ -201,6 +201,9 @@ class Conv2d(nn.Module):
 
         # init weight with std
         self.conv.weight.data.normal_(mean=0.0, std=weight_std)
+        nn.init.orthogonal_(
+            self.conv.weight, gain=nn.init.calculate_gain('relu')
+        )
 
         if not do_actnorm:
             self.conv.bias.data.zero_()

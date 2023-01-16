@@ -123,7 +123,8 @@ def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], reduction='mea
             final_loss = loss
         else:
             raise ValueError()
-        final_loss = torch.sqrt(final_loss)
+        # TODO: this is a strange place to take sqrt
+        final_loss = torch.sqrt(final_loss+1e-5)
         return final_loss
 
 
@@ -217,9 +218,10 @@ def main(
         else:
             # z, nll, y_logits = model(x, None)
             # losses = compute_loss(nll)
+            # TODO: might want to have a temperature warmup step
             x_pred = model(x=None, y_onehot=None, z=None, temperature=3e-1, reverse=True)
             loss_energy = compute_loss_energy(x, x_pred, device=device)
-            losses = {"total_loss": loss_energy, "loss_energy": loss_energy}
+            losses = {"total_loss": loss_energy, "loss_energy": loss_energy}ff
 
         losses["total_loss"].backward()
 
@@ -250,7 +252,8 @@ def main(
                 # losses = compute_loss(nll, reduction="none")
                 # TODO: WARNING: HACK: need to hard-code batch size in line 251 of model.py
                 x_pred = model(x=None, y_onehot=None, z=None, temperature=3e-1, reverse=True)
-                loss_energy = compute_loss_energy(x, x_pred, device=device, reduction="none")
+                loss_energy = compute_loss_energy(x, x_pred, device=device, reduction="mean")
+                loss_energy = loss_energy.view([1])
                 losses = {"total_loss": loss_energy, "loss_energy": loss_energy}
 
         return losses

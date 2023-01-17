@@ -28,6 +28,11 @@ def postprocess(x):
     x = x * 2 ** n_bits
     return torch.clamp(x, 0, 255).byte()
 
+def postprocess2(x):
+    x = torch.clamp(x, -0.5, 0.5)
+    x += 0.5
+    return x 
+
 def one_hot_encode(target):
     """
     One hot encode with fixed 10 classes

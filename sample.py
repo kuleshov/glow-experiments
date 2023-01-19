@@ -12,7 +12,7 @@ device = torch.device("cuda")
 # output_folder = 'glow/'
 # model_name = 'glow_affine_coupling.pt'
 output_folder = 'output/'
-model_name = 'glow_checkpoint_7000.pt'
+model_name = 'glow_checkpoint_1300.pt'
 
 with open(output_folder + 'hparams.json') as json_file:  
     hparams = json.load(json_file)
@@ -36,7 +36,7 @@ model = model.eval()
 
 def sample(model, n=30):
     with torch.no_grad():
-        x = model(y_onehot=None, temperature=1., reverse=True)
+        x = model(y_onehot=None, temperature=1e-1, reverse=True)
         print(x.mean())
         x = x[:n]
         images = postprocess(x)

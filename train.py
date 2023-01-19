@@ -100,7 +100,7 @@ def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], reduction='mea
         # TODO: unclear if needed, doesn't remove NaNs by itself
         exponent = exponent / sqrt(d)
         # TODO: unclear if needed, doesn't remove NaNs & could hurt perf
-        exponent = torch.clip(exponent, -1e4, 1e4)
+        # exponent = torch.clip(exponent, -1e4, 1e4)
         # scaling constants for each of the rows in 'X'
         s = makeScaleMatrix(gen_x.shape[0], x.shape[0], device=device)
         # scaling factors of each of the kernel values, corresponding to the
@@ -111,7 +111,7 @@ def compute_loss_energy(x, gen_x, sigma = [2, 5, 10, 20, 40, 80], reduction='mea
         for i in range(len(sigma)):
             # kernel values for each combination of the rows in 'X'
             v = 1.0 / sigma[i] * exponent
-            # v = torch.clip(v, -1e3, -1e3) # doesnt solve NaNs by itself
+            # v = torch.clip(v, -1e4, 1e2) # doesnt solve NaNs by itself
             kernel_val = torch.exp(v)
             loss += torch.sum(S * kernel_val, axis=1)
 
@@ -219,9 +219,9 @@ def main(
             # z, nll, y_logits = model(x, None)
             # losses = compute_loss(nll)
             # TODO: might want to have a temperature warmup step
-            x_pred = model(x=None, y_onehot=None, z=None, temperature=3e-1, reverse=True)
+            x_pred = model(x=None, y_onehot=None, z=None, temperature=1e-1, reverse=True)
             loss_energy = compute_loss_energy(x, x_pred, device=device)
-            losses = {"total_loss": loss_energy, "loss_energy": loss_energy}ff
+            losses = {"total_loss": loss_energy, "loss_energy": loss_energy}
 
         losses["total_loss"].backward()
 
@@ -251,7 +251,7 @@ def main(
                 # z, nll, y_logits = model(x, None)
                 # losses = compute_loss(nll, reduction="none")
                 # TODO: WARNING: HACK: need to hard-code batch size in line 251 of model.py
-                x_pred = model(x=None, y_onehot=None, z=None, temperature=3e-1, reverse=True)
+                x_pred = model(x=None, y_onehot=None, z=None, temperature=1e-1, reverse=True)
                 loss_energy = compute_loss_energy(x, x_pred, device=device, reduction="mean")
                 loss_energy = loss_energy.view([1])
                 losses = {"total_loss": loss_energy, "loss_energy": loss_energy}
@@ -442,7 +442,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_grad_clip",
         type=float,
-        default=.5,
+        default=0.5,
         help="Max gradient value (clip above - for off)",
     )
 
@@ -458,13 +458,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--batch_size", type=int, default=150, help="batch size used during training"
+        "--batch_size", type=int, default=500, help="batch size used during training"
     )
 
     parser.add_argument(
         "--eval_batch_size",
         type=int,
-        default=150,
+        default=500,
         help="batch size used during evaluation",
     )
 
